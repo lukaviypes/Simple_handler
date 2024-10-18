@@ -20,3 +20,6 @@ time=2024-10-17T11:11:09.601+03:00 level=INFO msg="Authorization passed" URL=/fo
 time=2024-10-17T11:11:09.602+03:00 level=ERROR msg="Something malicious happened" URL=/form duration=17 status=400
 time=2024-10-17T11:11:22.088+03:00 level=INFO msg="Authorization passed" URL=/form status=401
 time=2024-10-17T11:11:22.088+03:00 level=INFO msg=Succes URL=/form duration=84 status=200
+time=2024-10-18T15:50:16.030+03:00 level=INFO msg="Authorization passed" URL=/form status=401
+time=2024-10-18T15:50:16.031+03:00 level=INFO msg=Succes URL=/form duration=131 status=200
+time=2024-10-18T15:50:21.220+03:00 level=ERROR msg="Authorization failed" URL=/form status=401

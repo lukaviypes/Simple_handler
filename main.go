@@ -139,13 +139,13 @@ func main() {
 	Logger = logger.New()
 	mux := http.NewServeMux()
 
-	mux.Handle("/form", tokenAuthMIddleware(http.HandlerFunc(formhandler)))
+	mux.Handle("/form", http.HandlerFunc(formhandler))
 
 	fmt.Println("Server is listening")
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = ":8080"
 	}
-	http.ListenAndServe(port, mux)
+	http.ListenAndServe(port, tokenAuthMIddleware(mux))
 
 }

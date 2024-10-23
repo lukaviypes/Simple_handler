@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-var Logger *slog.Logger
+var Logger *logger.Logmid
 
 type Request struct {
 	Nums []int `json:"Nums"`
@@ -21,30 +21,47 @@ type Respons struct {
 	Ans int `json:"Res"`
 }
 
+func LogMIddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		Logger.Err = nil
+		Logger.Status = http.StatusOK
+		next.ServeHTTP(w, r)
+		if Logger.Err != nil {
+			Logger.Logger.LogAttrs(
+				r.Context(),
+				slog.LevelError,
+				"Something malicious happened",
+				slog.Any("URL", r.URL),
+				slog.Int("duration", int(time.Since(start).Microseconds())),
+				slog.Int("status", Logger.Status),
+			)
+			return
+
+		}
+		Logger.Logger.LogAttrs(
+			r.Context(),
+			slog.LevelInfo,
+			"Succes",
+			slog.Any("URL", r.URL),
+			slog.Int("duration", int(time.Since(start).Microseconds())),
+			slog.Int("status", Logger.Status),
+		)
+
+	})
+
+}
+
 func tokenAuthMIddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var err error
-		defer func() {
-			if err != nil {
-				Logger.LogAttrs(
-					r.Context(),
-					slog.LevelError,
-					"Authorization failed",
-					slog.Any("URL", r.URL),
 
-					slog.Int("status", http.StatusUnauthorized),
-				)
+		defer func() {
+			if Logger.Err != nil {
+				Logger.Status = http.StatusUnauthorized
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
-			Logger.LogAttrs(
-				r.Context(),
-				slog.LevelInfo,
-				"Authorization passed",
-				slog.Any("URL", r.URL),
 
-				slog.Int("status", http.StatusUnauthorized),
-			)
 			next.ServeHTTP(w, r)
 
 		}()
@@ -52,17 +69,20 @@ func tokenAuthMIddleware(next http.Handler) http.Handler {
 		token := strings.TrimPrefix(authHeader, "Bearer ")
 
 		if authHeader == "" {
-			err = http.ErrAbortHandler
+			Logger.Err = fmt.Errorf("")
+
 			return
 		}
 
 		if !strings.HasPrefix(authHeader, "Bearer ") {
-			err = http.ErrAbortHandler
+			Logger.Err = fmt.Errorf("")
+
 			return
 		}
 
 		if token != os.Getenv("AUTH_BEARER_TOKEN") {
-			err = http.ErrAbortHandler
+			Logger.Err = fmt.Errorf("")
+
 			return
 		}
 
@@ -74,53 +94,29 @@ func formhandler(w http.ResponseWriter, r *http.Request) {
 	req := Request{}
 	resp := Respons{}
 	var byteresp []byte
-	statuscode := http.StatusOK
-
-	start := time.Now()
-	var err error
 
 	defer func() {
-		if err != nil {
-			Logger.LogAttrs(
-				r.Context(),
-				slog.LevelError,
-				"Something malicious happened",
-				slog.Any("URL", r.URL),
-				slog.Int("duration", int(time.Since(start).Microseconds())),
-				slog.Int("status", statuscode),
-			)
 
-		} else {
-			Logger.LogAttrs(
-				r.Context(),
-				slog.LevelInfo,
-				"Succes",
-				slog.Any("URL", r.URL),
-				slog.Int("duration", int(time.Since(start).Microseconds())),
-				slog.Int("status", statuscode),
-			)
-
-		}
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(statuscode)
+		w.WriteHeader(Logger.Status)
 		w.Write(byteresp)
 	}()
 
 	if r.Method != http.MethodGet {
-		statuscode = http.StatusMethodNotAllowed
-
+		Logger.Status = http.StatusMethodNotAllowed
+		Logger.Err = fmt.Errorf("")
 		return
 	}
 	data, err := io.ReadAll(r.Body)
 	if err != nil {
-		statuscode = http.StatusBadRequest
+		Logger.Status = http.StatusBadRequest
 
 		return
 	}
 	err = json.Unmarshal(data, &req)
 	if err != nil {
-		statuscode = http.StatusBadRequest
-
+		Logger.Status = http.StatusBadRequest
+		Logger.Err = fmt.Errorf("")
 		return
 	}
 	for _, num := range req.Nums {
@@ -129,7 +125,8 @@ func formhandler(w http.ResponseWriter, r *http.Request) {
 
 	byteresp, err = json.Marshal(resp)
 	if err != nil {
-		statuscode = http.StatusInternalServerError
+		Logger.Status = http.StatusInternalServerError
+		Logger.Err = fmt.Errorf("")
 		return
 	}
 
@@ -146,6 +143,6 @@ func main() {
 	if port == "" {
 		port = ":8080"
 	}
-	http.ListenAndServe(port, tokenAuthMIddleware(mux))
+	http.ListenAndServe(port, LogMIddleware(tokenAuthMIddleware(mux)))
 
 }

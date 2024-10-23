@@ -2,10 +2,17 @@ package logger
 
 import (
 	"log/slog"
+	"net/http"
 	"os"
 )
 
-func New() *slog.Logger {
+type Logmid struct {
+	Logger slog.Logger
+	Status int
+	Err    error
+}
+
+func New() *Logmid {
 	logPath := os.Getenv("LOG_PATH")
 	if logPath == "" {
 		logPath = "logs.txt"
@@ -16,5 +23,8 @@ func New() *slog.Logger {
 		panic(err.Error())
 	}
 
-	return slog.New(slog.NewTextHandler(logFile, &slog.HandlerOptions{}))
+	return &Logmid{
+		Logger: *slog.New(slog.NewTextHandler(logFile, &slog.HandlerOptions{})),
+		Status: http.StatusOK,
+	}
 }
